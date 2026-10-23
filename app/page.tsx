@@ -1,141 +1,56 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import {
-  Activity,
-  ArrowRight,
-  Bell,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  CircleHelp,
-  Droplets,
-  HeartPulse,
-  Home,
-  Info,
-  Leaf,
-  Menu,
-  Moon,
-  MoreHorizontal,
-  ShieldCheck,
-  Sparkles,
-  Target,
-  TrendingDown,
-  UserRound,
-  Utensils,
-  X,
-  Zap,
-} from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, CheckCircle2, HeartPulse, Info, Printer, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-const defaultForm = {
-  age: '42',
-  bmi: '26.4',
-  systolic: '128',
-  activity: '3',
-  sleep: '7',
-  smoking: 'No',
-  familyHistory: 'Yes',
+const initial = { sex: 'M', age: '52', weight: '82', height: '170', sbp: '138', dbp: '88', glucose: '108', smoker: 'Yes', alcohol: '4', activity: '60', family: 'parent_sibling', bpTreated: false, diabetes: false }
+type FormState = typeof initial
+type Category = 'Low' | 'Moderate' | 'High'
+const order: Category[] = ['Low', 'Moderate', 'High']
+
+function category(value: number): Category { return value < 10 ? 'Low' : value < 20 ? 'Moderate' : 'High' }
+function calculate(form: FormState) {
+  const age = Number(form.age), bmi = Number(form.weight) / Math.pow(Number(form.height) / 100, 2), sbp = Number(form.sbp), dbp = Number(form.dbp), glucose = Number(form.glucose)
+  const sex = form.sex === 'M'
+  const c = sex ? { age: 3.11296, bmi: .79277, sbp: 1.85508, treated: 1.92672, smoker: .70953, dm: .5316, mean: 23.9388, s0: .88431 } : { age: 2.72107, bmi: .51125, sbp: 2.81291, treated: 2.88267, smoker: .61868, dm: .77763, mean: 26.0145, s0: .94833 }
+  const hasDiabetes = form.diabetes || glucose >= 126
+  const linear = c.age * Math.log(age) + c.bmi * Math.log(bmi) + (form.bpTreated ? c.treated : c.sbp) * Math.log(sbp) + c.smoker * (form.smoker === 'Yes' ? 1 : 0) + c.dm * (hasDiabetes ? 1 : 0)
+  const cvd = Math.max(0, Math.min(100, (1 - Math.pow(c.s0, Math.exp(linear - c.mean))) * 100))
+  const points = (age < 45 ? 0 : age < 55 ? 2 : age < 65 ? 3 : 4) + (bmi < 25 ? 0 : bmi < 30 ? 1 : 3) + (form.bpTreated || sbp >= 135 || dbp >= 85 ? 2 : 0) + ({ none: 0, extended: 3, parent_sibling: 5 }[form.family] || 0) + (Number(form.activity) < 150 ? 2 : 0) + (glucose < 100 ? 0 : 5)
+  const diabetes = glucose >= 126 ? 'High' : points < 7 ? 'Low' : points < 15 ? 'Moderate' : 'High'
+  const confidence = age < 30 || age > 74 ? 'Medium' : 'High'
+  return { bmi: bmi.toFixed(1), cvd: cvd.toFixed(1), cvdCategory: category(cvd), points, diabetes: diabetes as Category, confidence, hasDiabetes }
 }
 
-type FormState = typeof defaultForm
-
-function RiskRing({ score }: { score: number }) {
-  const radius = 62
-  const circumference = 2 * Math.PI * radius
-  const dash = circumference * (score / 100)
-  return (
-    <div className="relative flex size-40 items-center justify-center">
-      <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 160 160" aria-hidden="true">
-        <circle cx="80" cy="80" r={radius} fill="none" stroke="currentColor" strokeWidth="12" className="text-[#e5eee9]" />
-        <circle cx="80" cy="80" r={radius} fill="none" stroke="currentColor" strokeWidth="12" strokeLinecap="round" className="text-[#4b9079]" strokeDasharray={`${dash} ${circumference - dash}`} />
-      </svg>
-      <div className="relative text-center">
-        <div className="font-serif text-4xl font-semibold tracking-tight text-[#173f34]">{score}%</div>
-        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#709287]">10-year risk</div>
-      </div>
-    </div>
-  )
+function Field({ label, value, onChange, unit, type = 'number' }: { label: string; value: string; onChange: (v: string) => void; unit?: string; type?: string }) {
+  return <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">{label}<span className="flex items-center rounded-lg border border-slate-200 bg-white focus-within:border-sky-500"><input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="min-w-0 flex-1 rounded-lg bg-transparent px-3 py-2.5 outline-none" />{unit && <span className="pr-3 text-xs text-slate-400">{unit}</span>}</span></label>
 }
 
-function StatCard({ icon: Icon, label, value, note, tone = 'green' }: { icon: typeof Activity; label: string; value: string; note: string; tone?: 'green' | 'amber' | 'blue' }) {
-  const toneStyles = {
-    green: 'bg-[#f0f7f2] text-[#4b9079]',
-    amber: 'bg-[#fbf5e8] text-[#b58a3b]',
-    blue: 'bg-[#eef5f6] text-[#4c7f86]',
-  }
-  return (
-    <div className="rounded-2xl border border-[#e2e9e4] bg-white p-4 shadow-[0_2px_12px_rgba(36,77,59,0.03)]">
-      <div className="flex items-start justify-between gap-2">
-        <div className={`flex size-9 items-center justify-center rounded-xl ${toneStyles[tone]}`}><Icon /></div>
-        <MoreHorizontal className="size-4 text-[#a1b1aa]" />
-      </div>
-      <div className="mt-4 text-xs font-medium text-[#799088]">{label}</div>
-      <div className="mt-1 flex items-baseline gap-2"><span className="font-serif text-2xl font-semibold text-[#173f34]">{value}</span><span className="text-[11px] text-[#81958c]">{note}</span></div>
-    </div>
-  )
-}
+function RiskBadge({ value }: { value: Category }) { return <span className={`rounded-full px-3 py-1 text-sm font-bold ${value === 'Low' ? 'bg-emerald-100 text-emerald-700' : value === 'Moderate' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{value}</span> }
 
 export default function Page() {
-  const [form, setForm] = useState<FormState>(defaultForm)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [toast, setToast] = useState(false)
-
-  const score = useMemo(() => {
-    const bmi = Number(form.bmi) || 0
-    const age = Number(form.age) || 0
-    const systolic = Number(form.systolic) || 0
-    const activity = Number(form.activity) || 0
-    let result = 8 + Math.max(0, age - 35) * 0.35 + Math.max(0, bmi - 22) * 1.2 + Math.max(0, systolic - 115) * 0.08
-    result += form.smoking === 'Yes' ? 5 : 0
-    result += form.familyHistory === 'Yes' ? 3 : 0
-    result -= Math.min(activity, 7) * 0.45
-    return Math.max(3, Math.min(39, Math.round(result)))
-  }, [form])
-
-  const update = (key: keyof FormState, value: string) => setForm((current) => ({ ...current, [key]: value }))
-  const riskLabel = score < 12 ? 'Low' : score < 20 ? 'Moderate' : 'Elevated'
-
-  return (
-    <main className="min-h-screen bg-[#f7faf7] text-[#173f34]">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[242px] flex-col border-r border-[#e4ece6] bg-[#fbfdfb] px-5 py-6 lg:flex">
-        <div className="flex items-center gap-3 px-2"><div className="flex size-9 items-center justify-center rounded-xl bg-[#dceee4] text-[#397b65]"><HeartPulse className="size-5" /></div><span className="font-serif text-xl font-semibold tracking-tight">well<span className="text-[#4b9079]">mark</span></span></div>
-        <div className="mt-12 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#9aaca3]">Workspace</div>
-        <nav className="mt-3 flex flex-col gap-1" aria-label="Main navigation">
-          <a className="flex items-center gap-3 rounded-xl bg-[#e6f2eb] px-3 py-2.5 text-sm font-semibold text-[#2d725b]" href="#overview"><Home className="size-[17px]" />Overview</a>
-          <a className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#769088] hover:bg-[#f0f6f2]" href="#assessment"><Activity className="size-[17px]" />My assessment</a>
-          <a className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#769088] hover:bg-[#f0f6f2]" href="#recommendations"><Sparkles className="size-[17px]" />Recommendations</a>
-          <a className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#769088] hover:bg-[#f0f6f2]" href="#history"><CalendarDays className="size-[17px]" />History</a>
-        </nav>
-        <div className="mt-auto rounded-2xl bg-[#eff7f1] p-4"><div className="flex size-8 items-center justify-center rounded-lg bg-white text-[#4b9079]"><ShieldCheck className="size-4" /></div><p className="mt-3 text-xs font-semibold text-[#2d604f]">Your data is private</p><p className="mt-1 text-[11px] leading-relaxed text-[#77968a]">Only you can see your health information.</p><button className="mt-3 text-[11px] font-bold text-[#4b9079]">Learn more <ArrowRight className="ml-1 inline size-3" /></button></div>
-        <div className="mt-5 border-t border-[#e7eee9] pt-5"><p className="text-[11px] leading-relaxed text-[#91a49b]">Your assessment is saved on this device. No account required.</p></div>
-      </aside>
-
-      <div className="lg:pl-[242px]">
-        <header className="flex h-[76px] items-center justify-between border-b border-[#e7eee9] bg-[#fbfdfb]/90 px-5 backdrop-blur lg:px-10"><div className="flex items-center gap-3"><button className="lg:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu"><Menu /></button><div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#91a49b]">Monday, October 14, 2024</div><h1 className="mt-1 font-serif text-xl font-semibold tracking-tight text-[#173f34]">Good morning</h1></div></div><div className="flex items-center gap-3"><button className="relative flex size-9 items-center justify-center rounded-full border border-[#e1e9e4] bg-white text-[#799088]" aria-label="Notifications"><Bell className="size-4" /><span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[#d58c67]" /></button><span className="hidden text-xs font-medium text-[#799088] sm:inline">Private session · No account required</span></div></header>
-
-        {menuOpen && <div className="border-b border-[#e7eee9] bg-white px-5 py-3 lg:hidden"><nav className="flex flex-wrap gap-2 text-xs font-semibold text-[#397b65]"><a href="#overview" onClick={() => setMenuOpen(false)}>Overview</a><a href="#assessment" onClick={() => setMenuOpen(false)}>Assessment</a><a href="#recommendations" onClick={() => setMenuOpen(false)}>Recommendations</a></nav></div>}
-
-        <div className="mx-auto max-w-[1280px] px-5 py-7 lg:px-10 lg:py-9">
-          <section id="overview" className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><div className="flex items-center gap-2 text-xs font-semibold text-[#4b9079]"><span className="size-2 rounded-full bg-[#65aa8b]" />Last assessment · Today at 9:42 AM</div><h2 className="mt-3 font-serif text-4xl font-semibold tracking-tight text-[#173f34] sm:text-5xl">Your health at a glance</h2><p className="mt-2 max-w-xl text-sm leading-relaxed text-[#789088]">Small, consistent choices today can make a meaningful difference to your health tomorrow.</p></div><Button variant="outline" className="w-fit rounded-full border-[#dce7df] bg-white text-xs font-semibold text-[#397b65] shadow-none hover:bg-[#f0f7f2]" onClick={() => document.getElementById('assessment')?.scrollIntoView({ behavior: 'smooth' })}><Activity data-icon="inline-start" />Update assessment</Button></section>
-
-          <section className="mt-8 grid gap-4 xl:grid-cols-[1.35fr_1fr_1fr]">
-            <div className="rounded-2xl border border-[#dfeae2] bg-[#eaf5ed] p-6 sm:p-7"><div className="flex items-start justify-between"><div><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#4b9079]"><Target className="size-4" />Overall risk</div><h3 className="mt-4 font-serif text-2xl font-semibold text-[#173f34]">You're on a healthy path</h3><p className="mt-2 max-w-sm text-sm leading-relaxed text-[#648078]">Your current profile suggests a lower likelihood of developing type 2 diabetes or cardiovascular disease.</p></div><RiskRing score={score} /></div><div className="mt-5 flex items-center gap-2 border-t border-[#d2e6d8] pt-4 text-xs font-medium text-[#5e8173]"><Info className="size-3.5" />This is an estimate, not a medical diagnosis.</div></div>
-            <StatCard icon={TrendingDown} label="Risk trend" value="-4.2%" note="vs. last month" tone="green" />
-            <StatCard icon={Zap} label="Health score" value="78" note="out of 100" tone="amber" />
-          </section>
-
-          <section id="assessment" className="mt-10 grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-            <div className="rounded-2xl border border-[#e2e9e4] bg-white p-6 shadow-[0_2px_12px_rgba(36,77,59,0.03)] sm:p-7"><div className="flex items-start justify-between"><div><div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ca098]">01 / Your inputs</div><h3 className="mt-2 font-serif text-2xl font-semibold">Personalize your estimate</h3><p className="mt-1 text-sm text-[#83968e]">Use your latest numbers for a more relevant snapshot.</p></div><button className="text-[#9aaca3]" aria-label="Help"><CircleHelp className="size-5" /></button></div><div className="mt-7 grid gap-x-5 gap-y-5 sm:grid-cols-2"><label className="text-xs font-semibold text-[#526d63]">Age <div className="mt-2 flex items-center rounded-xl border border-[#e0e9e3] bg-[#fbfdfb] px-3 focus-within:border-[#76aa93]"><input value={form.age} onChange={(e) => update('age', e.target.value)} className="w-full bg-transparent py-3 text-sm font-semibold outline-none" inputMode="numeric" /><span className="text-xs text-[#99aaa2]">years</span></div></label><label className="text-xs font-semibold text-[#526d63]">BMI <div className="mt-2 flex items-center rounded-xl border border-[#e0e9e3] bg-[#fbfdfb] px-3"><input value={form.bmi} onChange={(e) => update('bmi', e.target.value)} className="w-full bg-transparent py-3 text-sm font-semibold outline-none" inputMode="decimal" /><span className="text-xs text-[#99aaa2]">kg/m²</span></div></label><label className="text-xs font-semibold text-[#526d63]">Systolic blood pressure <div className="mt-2 flex items-center rounded-xl border border-[#e0e9e3] bg-[#fbfdfb] px-3"><input value={form.systolic} onChange={(e) => update('systolic', e.target.value)} className="w-full bg-transparent py-3 text-sm font-semibold outline-none" inputMode="numeric" /><span className="text-xs text-[#99aaa2]">mmHg</span></div></label><label className="text-xs font-semibold text-[#526d63]">Weekly activity <div className="mt-2 flex items-center rounded-xl border border-[#e0e9e3] bg-[#fbfdfb] px-3"><input value={form.activity} onChange={(e) => update('activity', e.target.value)} className="w-full bg-transparent py-3 text-sm font-semibold outline-none" inputMode="numeric" /><span className="text-xs text-[#99aaa2]">hours</span></div></label><label className="text-xs font-semibold text-[#526d63]">Average sleep <div className="mt-2 flex items-center rounded-xl border border-[#e0e9e3] bg-[#fbfdfb] px-3"><input value={form.sleep} onChange={(e) => update('sleep', e.target.value)} className="w-full bg-transparent py-3 text-sm font-semibold outline-none" inputMode="numeric" /><span className="text-xs text-[#99aaa2]">hours/night</span></div></label><label className="text-xs font-semibold text-[#526d63]">Do you smoke? <div className="mt-2 flex gap-2">{['No', 'Yes'].map((option) => <button type="button" key={option} onClick={() => update('smoking', option)} className={`flex-1 rounded-xl border py-3 text-xs font-semibold transition ${form.smoking === option ? 'border-[#6aab91] bg-[#eaf5ed] text-[#397b65]' : 'border-[#e0e9e3] text-[#82968d]'}`}>{option}</button>)}</div></label></div><div className="mt-7 flex flex-col items-start justify-between gap-4 border-t border-[#edf1ed] pt-5 sm:flex-row sm:items-center"><label className="flex items-center gap-3 text-xs text-[#718980]"><button type="button" onClick={() => update('familyHistory', form.familyHistory === 'Yes' ? 'No' : 'Yes')} className={`flex size-5 items-center justify-center rounded-md border ${form.familyHistory === 'Yes' ? 'border-[#5c9d82] bg-[#5c9d82] text-white' : 'border-[#ccd9d1]'}`} aria-label="Toggle family history">{form.familyHistory === 'Yes' && <Check className="size-3.5" />}</button><span>Family history of diabetes or heart disease</span></label><Button className="w-full rounded-full bg-[#397b65] px-6 text-xs font-semibold hover:bg-[#2d604f] sm:w-auto" onClick={() => { setToast(true); setTimeout(() => setToast(false), 2500) }}>Recalculate risk <ArrowRight data-icon="inline-end" /></Button></div></div>
-
-            <div id="recommendations" className="rounded-2xl border border-[#e2e9e4] bg-[#fdfcf8] p-6 sm:p-7"><div className="flex items-start justify-between"><div><div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#b18b4e]">02 / Your focus areas</div><h3 className="mt-2 font-serif text-2xl font-semibold">Personalized for you</h3></div><Sparkles className="size-5 text-[#c3a269]" /></div><div className="mt-7 flex flex-col gap-5"><div className="flex gap-3"><div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#f8efd9] text-[#ba8f45]"><Utensils className="size-4" /></div><div><div className="flex items-center gap-2 text-sm font-semibold">Add more fiber <span className="rounded-full bg-[#f8efd9] px-2 py-0.5 text-[10px] font-bold text-[#a77f3c]">High impact</span></div><p className="mt-1 text-xs leading-relaxed text-[#81928a]">Try adding beans, oats, or an extra serving of vegetables each day.</p></div></div><div className="flex gap-3"><div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#e7f2ed] text-[#4b9079]"><Activity className="size-4" /></div><div><div className="text-sm font-semibold">Keep moving consistently</div><p className="mt-1 text-xs leading-relaxed text-[#81928a]">You're close to the 150-minute weekly activity goal. Keep it going.</p></div></div><div className="flex gap-3"><div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#eaf2f4] text-[#4c7f86]"><Moon className="size-4" /></div><div><div className="text-sm font-semibold">Protect your sleep</div><p className="mt-1 text-xs leading-relaxed text-[#81928a]">A consistent sleep schedule supports blood pressure and metabolic health.</p></div></div></div><button className="mt-6 flex w-full items-center justify-between rounded-xl border border-[#e9e5d8] bg-white px-4 py-3 text-xs font-bold text-[#a47c3c] hover:bg-[#fffdf5]">View all recommendations <ArrowRight className="size-4" /></button></div>
-          </section>
-
-          <section id="history" className="mt-10 grid gap-6 lg:grid-cols-[1fr_0.7fr]"><div className="rounded-2xl border border-[#e2e9e4] bg-white p-6 sm:p-7"><div className="flex items-center justify-between"><div><div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#8ca098]">Your journey</div><h3 className="mt-2 font-serif text-2xl font-semibold">Risk over time</h3></div><button className="rounded-lg border border-[#e2e9e4] px-3 py-2 text-xs font-semibold text-[#6f877e]">Last 6 months <ChevronDown className="ml-1 inline size-3" /></button></div><div className="mt-8"><div className="flex h-36 items-end gap-2 border-b border-[#e5ede7] px-2 pb-0 sm:gap-4"><div className="h-[58%] flex-1 rounded-t-lg bg-[#cfe5d6]" /><div className="h-[52%] flex-1 rounded-t-lg bg-[#cfe5d6]" /><div className="h-[49%] flex-1 rounded-t-lg bg-[#b9dac5]" /><div className="h-[44%] flex-1 rounded-t-lg bg-[#a6cfb5]" /><div className="h-[39%] flex-1 rounded-t-lg bg-[#8fc2a3]" /><div className="relative h-[33%] flex-1 rounded-t-lg bg-[#4b9079]"><span className="absolute -top-7 left-1/2 -translate-x-1/2 rounded-md bg-[#173f34] px-2 py-1 text-[10px] font-bold text-white">{score}%</span></div></div><div className="mt-3 flex justify-between px-1 text-[10px] font-medium text-[#9aaca3]"><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span></div></div></div><div className="rounded-2xl bg-[#173f34] p-6 text-[#eaf5ed] sm:p-7"><div className="flex size-10 items-center justify-center rounded-xl bg-[#2b5c4d] text-[#b9dec8]"><Leaf className="size-5" /></div><h3 className="mt-5 font-serif text-2xl font-semibold">A healthier you is built daily.</h3><p className="mt-2 text-sm leading-relaxed text-[#acc9ba]">Health isn't a pass or fail test. It's the small actions you repeat over time.</p><button className="mt-6 flex items-center gap-2 text-xs font-bold text-[#b9dec8]">Explore healthy habits <ArrowRight className="size-4" /></button></div></section>
-          <p className="mt-8 flex items-center justify-center gap-2 pb-4 text-center text-[11px] text-[#99aaa2]"><ShieldCheck className="size-3.5" /> Wellmark provides educational estimates and does not replace care from a licensed medical professional.</p>
-        </div>
-      </div>
-      {toast && <div className="fixed bottom-5 right-5 z-30 flex items-center gap-3 rounded-xl bg-[#173f34] px-4 py-3 text-xs font-semibold text-white shadow-lg"><Check className="size-4 text-[#a9d7ba]" /> Risk profile updated <button onClick={() => setToast(false)} aria-label="Dismiss"><X className="size-3.5 text-[#a9c8b7]" /></button></div>}
-    </main>
-  )
+  const [form, setForm] = useState<FormState>(initial)
+  const [tab, setTab] = useState<'assessment' | 'progress' | 'report'>('assessment')
+  const [history, setHistory] = useState<{ date: string; result: ReturnType<typeof calculate> }[]>([])
+  const result = useMemo(() => calculate(form), [form])
+  const update = (key: keyof FormState, value: string | boolean) => setForm((current) => ({ ...current, [key]: value } as FormState))
+  const worst = order[Math.max(order.indexOf(result.cvdCategory), order.indexOf(result.diabetes))]
+  const recommendations = [
+    Number(result.bmi) >= 25 ? 'Aim for 5–7% weight loss over 6 months: smaller portions and fewer sugary drinks.' : 'Keep a plate rich in vegetables, fruit, pulses and whole grains.',
+    Number(form.activity) < 150 ? 'Build toward 150 minutes per week of brisk walking.' : 'Great activity level. Add two days of strength training.',
+    Number(form.sbp) >= 130 ? 'Keep salt below 5 g per day and discuss blood pressure with your clinician.' : 'Continue checking your blood pressure during routine visits.',
+    Number(form.glucose) >= 100 ? 'Swap refined grains for whole grains and add pulses and vegetables.' : 'Keep your current balanced eating pattern.',
+    form.smoker === 'Yes' ? 'Ask a clinician about a quit-smoking plan—the biggest single cardiac win.' : 'Avoid tobacco and secondhand smoke.',
+  ]
+  const saveAssessment = () => setHistory((items) => [...items, { date: new Date().toLocaleDateString(), result }])
+  return <main className="min-h-screen bg-slate-50 text-slate-900">
+    <header className="border-b border-slate-200 bg-slate-900 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4"><div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-sky-500"><HeartPulse /></div><div><h1 className="text-xl font-bold">VitalRisk</h1><p className="text-xs text-slate-300">Chronic disease risk dashboard</p></div></div><nav className="flex gap-1" aria-label="Dashboard sections">{(['assessment', 'progress', 'report'] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-lg px-3 py-2 text-sm font-semibold capitalize ${tab === item ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>{item === 'assessment' ? 'My assessment' : item === 'progress' ? 'Progress over time' : 'Report'}</button>)}</nav></div></header>
+    <div className="mx-auto max-w-7xl px-5 py-8"><div className="mb-6 rounded-xl border border-sky-100 bg-sky-50 p-4 text-sm text-sky-900"><Info className="mr-2 inline size-4" />No account required. Your entries stay in this session and are not sent anywhere.</div>
+      {tab === 'assessment' && <div className="grid gap-6 lg:grid-cols-[360px_1fr]"><section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Your health details</h2><p className="mt-1 text-sm text-slate-500">Use recent measurements for a more useful screening estimate.</p><div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-1"><label className="text-sm font-medium text-slate-600">Sex at birth<select value={form.sex} onChange={(e) => update('sex', e.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"><option value="M">Male</option><option value="F">Female</option></select></label><Field label="Age" value={form.age} unit="years" onChange={(v) => update('age', v)} /><Field label="Weight" value={form.weight} unit="kg" onChange={(v) => update('weight', v)} /><Field label="Height" value={form.height} unit="cm" onChange={(v) => update('height', v)} /><Field label="Blood pressure — upper" value={form.sbp} unit="mmHg" onChange={(v) => update('sbp', v)} /><Field label="Blood pressure — lower" value={form.dbp} unit="mmHg" onChange={(v) => update('dbp', v)} /><Field label="Fasting glucose" value={form.glucose} unit="mg/dL" onChange={(v) => update('glucose', v)} /><Field label="Exercise" value={form.activity} unit="min/week" onChange={(v) => update('activity', v)} /></div><div className="mt-5 grid gap-3 text-sm"><label className="text-slate-600">Smoker<select value={form.smoker} onChange={(e) => update('smoker', e.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"><option>No</option><option>Yes</option></select></label><label className="text-slate-600">Family history of diabetes<select value={form.family} onChange={(e) => update('family', e.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"><option value="none">None</option><option value="extended">Grandparent, aunt, uncle</option><option value="parent_sibling">Parent or sibling</option></select></label><label className="flex items-center gap-2"><input type="checkbox" checked={form.bpTreated} onChange={(e) => update('bpTreated', e.target.checked)} />I take blood-pressure medicine</label><label className="flex items-center gap-2"><input type="checkbox" checked={form.diabetes} onChange={(e) => update('diabetes', e.target.checked)} />I have been told I have diabetes</label></div><Button onClick={saveAssessment} className="mt-6 w-full bg-sky-600 hover:bg-sky-700"><Activity data-icon="inline-start" />Save assessment</Button></section>
+        <div className="flex flex-col gap-6"><section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="text-xl font-bold">Your risk results</h2><p className="text-sm text-slate-500">Calculated instantly from your inputs</p></div><ShieldCheck className="text-emerald-600" /></div><div className="mt-6 grid gap-5 sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-5 text-center"><HeartPulse className="mx-auto text-red-500" /><p className="mt-2 text-sm text-slate-500">Heart & blood-vessel disease · 10 years</p><div className="mt-2 text-4xl font-bold">{result.cvd}%</div><RiskBadge value={result.cvdCategory} /></div><div className="rounded-xl bg-slate-50 p-5 text-center"><Activity className="mx-auto text-sky-600" /><p className="mt-2 text-sm text-slate-500">Type 2 diabetes</p><div className="mt-2 text-4xl font-bold">{result.points}<span className="text-lg"> points</span></div><RiskBadge value={result.diabetes} /></div></div><div className="mt-5 rounded-lg border-l-4 border-sky-500 bg-sky-50 p-4 text-sm"><b>Confidence: {result.confidence}.</b> BMI used: {result.bmi}. These are educational estimates, not a diagnosis.</div></section><section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-center gap-2"><Sparkles className="text-amber-500" /><h2 className="text-xl font-bold">Personalized action plan</h2></div><div className="mt-5 grid gap-3 sm:grid-cols-2">{recommendations.map((recommendation) => <div key={recommendation} className="flex gap-3 rounded-lg bg-emerald-50 p-4 text-sm"><CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" /><span>{recommendation}</span></div>)}</div><div className="mt-5 rounded-lg bg-slate-50 p-4 text-sm text-slate-600"><b>Next checkup:</b> blood pressure, fasting glucose and lipid profile {worst === 'High' ? 'within 4 weeks, then every 3 months' : worst === 'Moderate' ? 'every 6 months' : 'every 12 months'}.</div></section></div></div>}
+      {tab === 'progress' && <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="text-2xl font-bold">Your progress</h2><p className="text-sm text-slate-500">Saved assessments on this device</p></div><Button variant="outline" onClick={() => setHistory([])}><Trash2 data-icon="inline-start" />Delete data</Button></div>{history.length ? <div className="mt-6 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="p-3">Date</th><th className="p-3">Heart risk</th><th className="p-3">Diabetes</th><th className="p-3">BMI</th></tr></thead><tbody>{history.map((item, i) => <tr key={`${item.date}-${i}`} className="border-b"><td className="p-3">{item.date}</td><td className="p-3">{item.result.cvd}% · {item.result.cvdCategory}</td><td className="p-3">{item.result.points} points · {item.result.diabetes}</td><td className="p-3">{item.result.bmi}</td></tr>)}</tbody></table></div> : <div className="mt-8 rounded-xl bg-slate-50 p-10 text-center text-slate-500"><BarChart3 className="mx-auto mb-3 size-8" />No saved assessments yet.</div>}</section>}
+      {tab === 'report' && <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"><div className="flex items-start justify-between"><div><p className="text-sm font-semibold uppercase tracking-wider text-sky-600">VitalRisk</p><h2 className="mt-2 text-3xl font-bold">Personal health risk report</h2><p className="mt-1 text-sm text-slate-500">Generated from your current assessment · {new Date().toLocaleDateString()}</p></div><Button variant="outline" onClick={() => window.print()}><Printer data-icon="inline-start" />Print / PDF</Button></div><div className="mt-8 grid gap-4 sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-5"><p className="text-sm text-slate-500">Heart & blood-vessel disease</p><p className="mt-1 text-3xl font-bold">{result.cvd}%</p><RiskBadge value={result.cvdCategory} /></div><div className="rounded-xl bg-slate-50 p-5"><p className="text-sm text-slate-500">Type 2 diabetes</p><p className="mt-1 text-3xl font-bold">{result.points} points</p><RiskBadge value={result.diabetes} /></div></div><h3 className="mt-8 text-lg font-bold">Action plan</h3><ul className="mt-3 grid gap-2">{recommendations.map((item) => <li key={item} className="flex gap-2 text-sm"><CheckCircle2 className="size-4 text-emerald-600" />{item}</li>)}</ul><div className="mt-8 flex gap-2 rounded-lg bg-amber-50 p-4 text-sm text-amber-900"><AlertTriangle className="size-5 shrink-0" />This screening tool is for education only and does not replace care from a licensed medical professional.</div></section>}
+      <footer className="mt-8 flex items-center justify-center gap-2 text-center text-xs text-slate-500"><ShieldCheck className="size-4" />No account required · Your data stays on this device.</footer>
+    </div></main>
 }
