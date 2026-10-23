@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VitalRisk - Chronic Disease Risk Dashboard</title>
+<style>
+:root{--ink:#1d2b34;--mut:#5b6b75;--bg:#f3f7f9;--card:#fff;--line:#dbe4e9;--blue:#1b8fc4;--low:#2e9e5b;--mod:#e8a317;--high:#d6453d}
+*{box-sizing:border-box}body{margin:0;font:17px/1.5 Calibri,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:#27414f;color:#fff;padding:14px 28px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+header h1{font-size:22px;margin:0;flex:1}nav button{background:transparent;color:#cfe3ee;border:0;font:inherit;padding:8px 16px;border-radius:8px;cursor:pointer}
+nav button.on{background:var(--blue);color:#fff}
+main{max-width:1180px;margin:22px auto;padding:0 18px;display:grid;grid-template-columns:380px 1fr;gap:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+h2{font-size:19px;margin:0 0 12px}label{display:block;font-size:15px;color:var(--mut);margin:10px 0 3px}
+input,select{width:100%;padding:9px 10px;font:inherit;border:1px solid #b9c7cf;border-radius:8px;background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:16px}.chk input{width:auto}
+button.go{margin-top:16px;width:100%;background:var(--blue);color:#fff;border:0;border-radius:10px;padding:13px;font:600 18px Calibri,Arial;cursor:pointer}
+.gauges{display:grid;grid-template-columns:1fr 1fr;gap:16px}.g{text-align:center}.g h3{margin:0;font-size:17px;color:var(--mut)}
+.pill{display:inline-block;padding:3px 16px;border-radius:99px;color:#fff;font-weight:700;font-size:18px}
+.Low{background:var(--low)}.Moderate{background:var(--mod)}.High{background:var(--high)}
+.big{font-size:34px;font-weight:700;line-height:1.1}
+.recs{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}.recs div{background:#f3f9fc;border-radius:10px;padding:12px 14px;font-size:15.5px}
+.recs b{color:var(--blue);display:block;margin-bottom:4px;font-size:16.5px}.recs li{margin:0 0 5px 16px;padding:0}.recs ul{margin:0;padding:0}
+.disc{font-size:14.5px;color:var(--mut);background:#f8fafb;border-left:4px solid var(--blue);padding:10px 14px;border-radius:6px;margin-top:14px}
+table{width:100%;border-collapse:collapse;font-size:15.5px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600}
+.stack{display:flex;flex-direction:column;gap:18px}.hide{display:none}.danger{background:#fff;color:var(--high);border:1px solid var(--high);border-radius:8px;padding:9px 14px;font:inherit;cursor:pointer}
+.small{font-size:14px;color:var(--mut)}
+@media(max-width:900px){main{grid-template-columns:1fr}.recs,.gauges{grid-template-columns:1fr}}
+@media print{header,#formcard,.noprint{display:none!important}main{display:block;margin:0}body{background:#fff}.card{border:0}}
+</style></head><body>
+<header><h1>VitalRisk <span style="font-weight:400;opacity:.8;font-size:17px">&nbsp;Chronic Disease Risk Dashboard</span></h1>
+<nav><button id="t1" class="on" onclick="tab(1)">My assessment</button><button id="t2" onclick="tab(2)">Progress over time</button><button id="t3" onclick="tab(3)">Report</button></nav></header>
+<main>
+<section class="card" id="formcard"><h2>Your health details</h2>
+<div class="row"><div><label>Sex at birth</label><select id="sex"><option value="M">Male</option><option value="F">Female</option></select></div><div><label>Age (years)</label><input id="age" type="number" value="52" min="18" max="90"></div></div>
+<div class="row"><div><label>Weight (kg)</label><input id="weight" type="number" value="82"></div><div><label>Height (cm)</label><input id="height" type="number" value="170"></div></div>
+<div class="row"><div><label>Blood pressure - upper (mmHg)</label><input id="sbp" type="number" value="138"></div><div><label>lower (mmHg)</label><input id="dbp" type="number" value="88"></div></div>
+<label>Fasting blood glucose (mg/dL)</label><input id="glucose" type="number" value="108">
+<div class="row"><div><label>Smoker?</label><select id="smoker"><option value="0">No</option><option value="1" selected>Yes</option></select></div><div><label>Alcohol (drinks / week)</label><input id="alcohol" type="number" value="4"></div></div>
+<label>Exercise (minutes / week)</label><input id="activity" type="number" value="60">
+<label>Family history of diabetes</label><select id="family"><option value="none">None</option><option value="extended">Grandparent, aunt, uncle</option><option value="parent_sibling" selected>Parent or sibling</option></select>
+<div class="chk"><input type="checkbox" id="bpt"><span>I take blood-pressure medicine</span></div>
+<div class="chk"><input type="checkbox" id="dm"><span>I have been told I have diabetes</span></div>
+<button class="go" onclick="run()">Calculate my risk</button></section>
+
+<div class="stack" id="v1"><section class="card"><h2>Your risk results <span class="small" id="ms"></span></h2>
+<div class="gauges"><div class="g"><h3>Heart &amp; blood-vessel disease (10 years)</h3><div id="g1"></div><div class="big" id="n1"></div><span class="pill" id="c1"></span></div>
+<div class="g"><h3>Type 2 diabetes</h3><div id="g2"></div><div class="big" id="n2"></div><span class="pill" id="c2"></span></div></div>
+<div class="disc" id="conf"></div></section>
+<section class="card"><h2>Your personal action plan</h2><div class="recs" id="recs"></div>
+<div class="disc"><b>About this score.</b> Heart risk uses the Framingham 2008 office-based formula (validated for ages 30-74, US cohort; it may over- or under-estimate in other populations). Diabetes score is rule-based (FINDRISC-style points + ADA glucose bands). The confidence label shows input quality, not a statistical interval. This is an education tool, not a diagnosis - please see a doctor for decisions.</div></section></div>
+
+<div class="stack hide" id="v2"><section class="card"><h2>Your progress</h2><div id="chart"></div>
+<table id="hist"></table><p><button class="danger noprint" onclick="wipe()">Delete all my saved data</button> <span class="small">Data is stored only in this browser and can be erased at any time.</span></p></section></div>
+<div class="stack hide" id="v3"><section class="card" id="rep"></section><p class="noprint"><button class="go" style="width:auto;padding:12px 28px" onclick="print()">Download report (PDF)</button></p></div>
+</main>
+<script>
+const FRS={M:{a:3.11296,b:.79277,s:1.85508,t:1.92672,k:.70953,d:.5316,m:23.9388,s0:.88431},F:{a:2.72107,b:.51125,s:2.81291,t:2.88267,k:.61868,d:.77763,m:26.0145,s0:.94833}};
+const $=i=>document.getElementById(i),ORD=["Low","Moderate","High"];
+function cvd(a,x,bmi,sbp,tr,sm,dm){const c=FRS[x];const s=c.a*Math.log(a)+c.b*Math.log(bmi)+(tr?c.t:c.s)*Math.log(sbp)+c.k*sm+c.d*dm;return 1-Math.pow(c.s0,Math.exp(s-c.m))}
+function assess(p){const bmi=p.weight/Math.pow(p.height/100,2),dm=p.dm||p.glucose>=126;const r=cvd(p.age,p.sex,bmi,p.sbp,p.bpt,p.smoker,dm);
+ const pa=p.age<45?0:p.age<55?2:p.age<65?3:4,pb=bmi<25?0:bmi<30?1:3,ph=(p.bpt||p.sbp>=135||p.dbp>=85)?2:0,pf={none:0,extended:3,parent_sibling:5}[p.family],pp=p.activity<150?2:0,pg=p.glucose<100?0:5;
+ const pts=pa+pb+ph+pf+pp+pg;let dc=pts<7?"Low":pts<15?"Moderate":"High";if(p.glucose>=126)dc="High";
+ const cc=r<.1?"Low":r<.2?"Moderate":"High";const notes=[];let lv=2;if(p.age<30||p.age>74){lv--;notes.push("age is outside the 30-74 range the heart formula was validated on")}
+ if(bmi<15||bmi>50){lv--;notes.push("BMI is outside the usual range")}
+ return{bmi:+bmi.toFixed(1),cvd:+(r*100).toFixed(1),cc,pts,dc,conf:["Low","Medium","High"][lv],notes}}
+function recs(p,r){const D=[],E=[],C=[];if(r.bmi>=25)D.push("Aim for 5-7% weight loss over 6 months: smaller portions, fewer sugary drinks.");
+ if(p.sbp>=130)D.push("Keep salt under 5 g a day (pickles, papad, packaged snacks).");if(p.glucose>=100)D.push("Swap refined grains for whole grains; add pulses and vegetables to each meal.");
+ if(p.alcohol>7)D.push("Cut back alcohol: at most 14 drinks/week (men) or 7 (women).");if(p.smoker)D.push("Ask your doctor for a quit-smoking plan - the biggest single heart benefit.");if(!D.length)D.push("Keep a plate rich in vegetables, fruit, pulses and whole grains.");
+ E.push(p.activity<150?"Build up to 150 minutes a week of brisk walking (30 min, 5 days).":"Great activity level - add 2 days of strength training.");
+ const w=ORD[Math.max(ORD.indexOf(r.cc),ORD.indexOf(r.dc))],f={Low:"every 12 months",Moderate:"every 6 months",High:"within 4 weeks, then every 3 months"}[w];
+ C.push(`Blood pressure, fasting glucose and cholesterol ${f}.`);if(p.glucose>=126)C.push("Glucose is in the diabetic range: book a confirmatory HbA1c test with a doctor.");
+ return{Diet:D,Exercise:E,Checkups:C}}
+const COL={Low:"#2e9e5b",Moderate:"#e8a317",High:"#d6453d"};
+function arc(cx,cy,r,f0,f1){const p=f=>{const a=Math.PI*(1-f);return[cx+r*Math.cos(a),cy-r*Math.sin(a)]},[x0,y0]=p(f0),[x1,y1]=p(f1);return`M${x0} ${y0}A${r} ${r} 0 0 1 ${x1} ${y1}`}
+function gauge(v,max,th,cat){const segs=[[0,th[0]/max,"Low"],[th[0]/max,th[1]/max,"Moderate"],[th[1]/max,1,"High"]];const f=Math.min(v/max,1),a=Math.PI*(1-f),nx=150+88*Math.cos(a),ny=125-88*Math.sin(a);
+ return`<svg viewBox="0 0 300 150" width="100%" style="max-width:330px" role="img" aria-label="gauge ${cat}">${segs.map(s=>`<path d="${arc(150,125,100,s[0],s[1])}" stroke="${COL[s[2]]}" stroke-width="24" fill="none"/>`).join("")}<line x1="150" y1="125" x2="${nx}" y2="${ny}" stroke="#1d2b34" stroke-width="5" stroke-linecap="round"/><circle cx="150" cy="125" r="9" fill="#1d2b34"/></svg>`}
+function read(){const g=i=>+$(i).value;return{sex:$("sex").value,age:g("age"),weight:g("weight"),height:g("height"),sbp:g("sbp"),dbp:g("dbp"),glucose:g("glucose"),smoker:+$("smoker").value,alcohol:g("alcohol"),activity:g("activity"),family:$("family").value,bpt:$("bpt").checked,dm:$("dm").checked}}
+let last=null;
+function run(date){const t0=performance.now(),p=read(),r=assess(p),R=recs(p,r),ms=(performance.now()-t0).toFixed(1);last={p,r,R,date:date||new Date().toISOString().slice(0,10)};
+ $("g1").innerHTML=gauge(r.cvd,30,[10,20],r.cc);$("n1").textContent=r.cvd+"%";$("c1").textContent=r.cc+" risk";$("c1").className="pill "+r.cc;
+ $("g2").innerHTML=gauge(r.pts,21,[7,15],r.dc);$("n2").textContent=r.pts+" points";$("c2").textContent=r.dc+" risk";$("c2").className="pill "+r.dc;
+ $("ms").textContent=`calculated in ${ms} ms`;$("conf").innerHTML=`<b>Confidence in this estimate: ${r.conf}.</b> `+(r.notes.length?"Because "+r.notes.join("; ")+".":"All inputs are within the range the formulas were designed for.")+` BMI used: ${r.bmi}.`;
+ $("recs").innerHTML=Object.entries(R).map(([k,v])=>`<div><b>${k}</b><ul>${v.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("");save();draw()}
+function load(){try{return JSON.parse(localStorage.getItem("hist")||"[]")}catch(e){return[]}}
+function save(){const h=load();h.push({date:last.date,cvd:last.r.cvd,pts:last.r.pts,cc:last.r.cc,dc:last.r.dc,bmi:last.r.bmi,sbp:last.p.sbp,glucose:last.p.glucose});try{localStorage.setItem("hist",JSON.stringify(h))}catch(e){}}
+function wipe(){try{localStorage.removeItem("hist")}catch(e){}draw()}
+function draw(){const h=load();$("hist").innerHTML="<tr><th>Date</th><th>Heart risk</th><th>Diabetes points</th><th>BMI</th><th>BP (top)</th><th>Glucose</th></tr>"+h.map(x=>`<tr><td>${x.date}</td><td>${x.cvd}% (${x.cc})</td><td>${x.pts} (${x.dc})</td><td>${x.bmi}</td><td>${x.sbp}</td><td>${x.glucose}</td></tr>`).join("");
+ if(!h.length){$("chart").innerHTML="<p class='small'>No saved assessments yet.</p>";return}
+ const W=700,H=210,n=h.length,X=i=>50+(n==1?300:i*(W-100)/(n-1)),mc=Math.max(30,...h.map(x=>x.cvd)),mp=Math.max(21,...h.map(x=>x.pts));
+ const line=(k,m,c)=>`<polyline fill="none" stroke="${c}" stroke-width="3" points="${h.map((x,i)=>X(i)+","+(H-30-(x[k]/m)*(H-60))).join(" ")}"/>`+h.map((x,i)=>`<circle cx="${X(i)}" cy="${H-30-(x[k]/m)*(H-60)}" r="5" fill="${c}"/>`).join("");
+ $("chart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%"><line x1="50" y1="${H-30}" x2="${W-50}" y2="${H-30}" stroke="#b9c7cf"/>${line("cvd",mc,"#d6453d")}${line("pts",mp,"#1b8fc4")}${h.map((x,i)=>`<text x="${X(i)}" y="${H-8}" font-size="13" text-anchor="middle" fill="#5b6b75">${x.date.slice(5)}</text>`).join("")}<text x="52" y="18" font-size="14" fill="#d6453d">&#9632; Heart risk %</text><text x="190" y="18" font-size="14" fill="#1b8fc4">&#9632; Diabetes points</text></svg>`}
+function report(){if(!last)run();const{p,r,R,date}=last;$("rep").innerHTML=`<h2 style="font-size:26px">VitalRisk - Personal Health Risk Report</h2><p class="small">Assessment date: ${date} &nbsp;|&nbsp; ${p.sex=="M"?"Male":"Female"}, ${p.age} years &nbsp;|&nbsp; BMI ${r.bmi}</p>
+<div class="gauges"><div class="g"><h3>Heart &amp; blood-vessel disease, 10 years</h3><div class="big">${r.cvd}%</div><span class="pill ${r.cc}">${r.cc} risk</span></div><div class="g"><h3>Type 2 diabetes</h3><div class="big">${r.pts} points</div><span class="pill ${r.dc}">${r.dc} risk</span></div></div>
+<h2 style="margin-top:18px">Your inputs</h2><table><tr><th>Blood pressure</th><td>${p.sbp}/${p.dbp} mmHg${p.bpt?" (on medicine)":""}</td><th>Fasting glucose</th><td>${p.glucose} mg/dL</td></tr><tr><th>Smoker</th><td>${p.smoker?"Yes":"No"}</td><th>Exercise</th><td>${p.activity} min/week</td></tr></table>
+<h2 style="margin-top:18px">Action plan</h2><div class="recs">${Object.entries(R).map(([k,v])=>`<div><b>${k}</b><ul>${v.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("")}</div>
+<div class="disc"><b>Confidence: ${r.conf}.</b> Heart risk: Framingham 2008 office-based model (D'Agostino et al., Circulation). Diabetes: FINDRISC-style rule score with ADA glucose bands. Education tool only - not a diagnosis. Please discuss results with a doctor.</div>`}
+function tab(n){[1,2,3].forEach(i=>{$("t"+i).className=i==n?"on":"";$("v"+i).classList.toggle("hide",i!=n)});$("formcard").classList.toggle("hide",n!=1);if(n==3)report();if(n!=1)document.querySelector("main").style.gridTemplateColumns="1fr"; else document.querySelector("main").style.gridTemplateColumns=""}
+draw();
+</script></body></html>
